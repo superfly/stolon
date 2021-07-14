@@ -30,7 +30,7 @@ import (
 	"github.com/superfly/leadership"
 	"github.com/superfly/libkv"
 	libkvstore "github.com/superfly/libkv/store"
-	etcdclientv3 "go.etcd.io/etcd/clientv3"
+	etcdclientv3 "go.etcd.io/etcd/client/v3"
 )
 
 // Backend represents a KV Store Backend
@@ -63,16 +63,18 @@ const (
 var URLSchemeRegexp = regexp.MustCompile(`^([a-zA-Z][a-zA-Z0-9+-.]*)://`)
 
 type Config struct {
-	Backend       Backend
-	Endpoints     string
-	Timeout       time.Duration
-	BasePath      string
-	Token         string
-	Node          string
-	CertFile      string
-	KeyFile       string
-	CAFile        string
-	SkipTLSVerify bool
+	Backend         Backend
+	BackendUsername string
+	BackendPassword string
+	Endpoints       string
+	Timeout         time.Duration
+	BasePath        string
+	Token           string
+	Node            string
+	CertFile        string
+	KeyFile         string
+	CAFile          string
+	SkipTLSVerify   bool
 }
 
 // KVPair represents {Key, Value, Lastindex} tuple
@@ -138,11 +140,13 @@ func NewKVStore(cfg Config) (KVStore, error) {
 	var scheme string
 	for _, e := range endpoints {
 		var curscheme, addr string
+
+		u, err := url.Parse(e)
+		if err != nil {
+			return nil, fmt.Errorf("cannot parse endpoint %q: %v", e, err)
+		}
+
 		if URLSchemeRegexp.Match([]byte(e)) {
-			u, err := url.Parse(e)
-			if err != nil {
-				return nil, fmt.Errorf("cannot parse endpoint %q: %v", e, err)
-			}
 			curscheme = u.Scheme
 			addr = u.Host
 		} else {
@@ -156,6 +160,7 @@ func NewKVStore(cfg Config) (KVStore, error) {
 		if scheme != curscheme {
 			return nil, fmt.Errorf("all the endpoints must have the same scheme")
 		}
+
 		addrs = append(addrs, addr)
 	}
 
@@ -180,7 +185,6 @@ func NewKVStore(cfg Config) (KVStore, error) {
 
 		if cfg.Backend == CONSUL && cfg.Token != "" {
 			config.Token = &cfg.Token
-
 		}
 
 		if cfg.Backend == CONSUL && cfg.Node != "" {
@@ -193,18 +197,22 @@ func NewKVStore(cfg Config) (KVStore, error) {
 		}
 		return &libKVStore{store: store}, nil
 	case ETCDV3:
+
 		config := etcdclientv3.Config{
 			Endpoints:            addrs,
 			TLS:                  tlsConfig,
 			DialTimeout:          20 * time.Second,
 			DialKeepAliveTime:    1 * time.Second,
 			DialKeepAliveTimeout: cfg.Timeout,
+			Username:             cfg.BackendUsername,
+			Password:             cfg.BackendPassword,
 		}
 
 		c, err := etcdclientv3.New(config)
 		if err != nil {
 			return nil, err
 		}
+
 		return &etcdV3Store{c: c, requestTimeout: cfg.Timeout}, nil
 	default:
 		return nil, fmt.Errorf("Unknown store backend: %q", cfg.Backend)
