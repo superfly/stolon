@@ -66,7 +66,7 @@ func AddCommonFlags(cmd *cobra.Command, cfg *CommonConfig) {
 	cmd.PersistentFlags().DurationVar(&cfg.StoreTimeout, "store-timeout", cluster.DefaultStoreTimeout, "store request timeout")
 	cmd.PersistentFlags().StringVar(&cfg.StorePrefix, "store-prefix", common.StorePrefix, "the store base prefix")
 	cmd.PersistentFlags().StringVar(&cfg.StoreToken, "store-token", "", "the store auth token (consul)")
-	cmd.PersistentFlags().StringVar(&cfg.StoreURL, "store-url", "", "url to store (consul)")
+	cmd.PersistentFlags().StringVar(&cfg.StoreURL, "store-url", "", "url to store (consul, etcdv3)")
 	cmd.PersistentFlags().StringVar(&cfg.StoreNode, "store-node", "", "node name to use (consul)")
 
 	cmd.PersistentFlags().StringVar(&cfg.StoreCertFile, "store-cert-file", "", "certificate file for client identification to the store")
@@ -121,21 +121,19 @@ func CheckCommonConfig(cfg *CommonConfig) error {
 			return err
 		}
 
-		cfg.StoreUsername = u.User.Username()
+		cfg.StoreUsername = u.User.Username() // etcdv3
 
 		password, set := u.User.Password()
 		if set {
 			cfg.StoreToken = password
-			cfg.StorePassword = password
+			cfg.StorePassword = password // etcdv3
 		}
-
 		cfg.StorePrefix = u.Path[1:] + "/"
 
 		u.User = nil
 		u.Path = ""
 		cfg.StoreEndpoints = u.String()
 		cfg.StoreURL = ""
-
 	}
 
 	switch cfg.StoreBackend {

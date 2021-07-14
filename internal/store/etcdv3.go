@@ -29,6 +29,9 @@ func fromEtcV3Error(err error) error {
 		return ErrKeyNotFound
 	case concurrency.ErrElectionNoLeader:
 		return ErrElectionNoLeader
+	case rpctypes.ErrGRPCPermissionDenied:
+		return ErrPermissionDenied
+
 	}
 	return err
 }
