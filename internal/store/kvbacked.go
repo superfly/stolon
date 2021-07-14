@@ -140,7 +140,6 @@ func NewKVStore(cfg Config) (KVStore, error) {
 	var scheme string
 	for _, e := range endpoints {
 		var curscheme, addr string
-
 		if URLSchemeRegexp.Match([]byte(e)) {
 			u, err := url.Parse(e)
 			if err != nil {
