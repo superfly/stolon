@@ -141,12 +141,11 @@ func NewKVStore(cfg Config) (KVStore, error) {
 	for _, e := range endpoints {
 		var curscheme, addr string
 
-		u, err := url.Parse(e)
-		if err != nil {
-			return nil, fmt.Errorf("cannot parse endpoint %q: %v", e, err)
-		}
-
 		if URLSchemeRegexp.Match([]byte(e)) {
+			u, err := url.Parse(e)
+			if err != nil {
+				return nil, fmt.Errorf("cannot parse endpoint %q: %v", e, err)
+			}
 			curscheme = u.Scheme
 			addr = u.Host
 		} else {
@@ -160,7 +159,6 @@ func NewKVStore(cfg Config) (KVStore, error) {
 		if scheme != curscheme {
 			return nil, fmt.Errorf("all the endpoints must have the same scheme")
 		}
-
 		addrs = append(addrs, addr)
 	}
 
@@ -185,6 +183,7 @@ func NewKVStore(cfg Config) (KVStore, error) {
 
 		if cfg.Backend == CONSUL && cfg.Token != "" {
 			config.Token = &cfg.Token
+
 		}
 
 		if cfg.Backend == CONSUL && cfg.Node != "" {
@@ -197,7 +196,6 @@ func NewKVStore(cfg Config) (KVStore, error) {
 		}
 		return &libKVStore{store: store}, nil
 	case ETCDV3:
-
 		config := etcdclientv3.Config{
 			Endpoints:            addrs,
 			TLS:                  tlsConfig,
@@ -212,7 +210,6 @@ func NewKVStore(cfg Config) (KVStore, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		return &etcdV3Store{c: c, requestTimeout: cfg.Timeout}, nil
 	default:
 		return nil, fmt.Errorf("Unknown store backend: %q", cfg.Backend)
