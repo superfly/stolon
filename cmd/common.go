@@ -114,7 +114,6 @@ func CheckCommonConfig(cfg *CommonConfig) error {
 	if cfg.StoreBackend == "" {
 		return fmt.Errorf("store backend type required")
 	}
-
 	if cfg.StoreURL != "" {
 		u, err := url.Parse(cfg.StoreURL)
 		if err != nil {
@@ -122,7 +121,6 @@ func CheckCommonConfig(cfg *CommonConfig) error {
 		}
 
 		cfg.StoreUsername = u.User.Username() // etcdv3
-
 		password, set := u.User.Password()
 		if set {
 			cfg.StoreToken = password
@@ -134,6 +132,7 @@ func CheckCommonConfig(cfg *CommonConfig) error {
 		u.Path = ""
 		cfg.StoreEndpoints = u.String()
 		cfg.StoreURL = ""
+
 	}
 
 	switch cfg.StoreBackend {
@@ -143,7 +142,6 @@ func CheckCommonConfig(cfg *CommonConfig) error {
 		cfg.StoreBackend = "etcdv2"
 	case "etcdv2":
 	case "etcdv3":
-
 	case "kubernetes":
 		if cfg.KubeResourceKind == "" {
 			return fmt.Errorf("unspecified kubernetes resource kind")
