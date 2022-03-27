@@ -58,26 +58,26 @@ var CmdSentinel = &cobra.Command{
 	Version: cmd.Version,
 }
 
-type config struct {
+type Config struct {
 	cmd.CommonConfig
-	initialClusterSpecFile string
-	debug                  bool
+	InitialClusterSpecFile string
+	Debug                  bool
 }
 
-var cfg config
+var cfg Config
 
 func init() {
 	cmd.AddCommonFlags(CmdSentinel, &cfg.CommonConfig)
 
-	CmdSentinel.PersistentFlags().StringVar(&cfg.initialClusterSpecFile, "initial-cluster-spec", "", "a file providing the initial cluster specification, used only at cluster initialization, ignored if cluster is already initialized")
-	CmdSentinel.PersistentFlags().BoolVar(&cfg.debug, "debug", false, "enable debug logging (deprecated, use log-level instead)")
+	CmdSentinel.PersistentFlags().StringVar(&cfg.InitialClusterSpecFile, "initial-cluster-spec", "", "a file providing the initial cluster specification, used only at cluster initialization, ignored if cluster is already initialized")
+	CmdSentinel.PersistentFlags().BoolVar(&cfg.Debug, "debug", false, "enable debug logging (deprecated, use log-level instead)")
 
 	if err := CmdSentinel.PersistentFlags().MarkDeprecated("debug", "use --log-level=debug instead"); err != nil {
 		log.Fatal(err)
 	}
 }
 
-func (s *Sentinel) electionLoop(ctx context.Context) {
+func (s *Sentinel) electionLoop(ctx context.Context, hook func(bool)) {
 	for {
 		log.Infow("Trying to acquire sentinels leadership")
 		electedCh, errCh := s.election.RunForElection()
@@ -89,11 +89,13 @@ func (s *Sentinel) electionLoop(ctx context.Context) {
 					log.Infow("sentinel leadership acquired")
 					s.leader = true
 					s.leadershipCount++
+					hook(true)
 				} else {
 					if s.leader {
 						log.Infow("sentinel leadership lost")
 					}
 					s.leader = false
+					hook(false)
 				}
 				s.leaderMutex.Unlock()
 
@@ -1725,7 +1727,7 @@ func (p ProxyInfoHistories) DeepCopy() ProxyInfoHistories {
 
 type Sentinel struct {
 	uid string
-	cfg *config
+	cfg *Config
 	e   store.Store
 
 	election store.Election
@@ -1758,10 +1760,10 @@ type Sentinel struct {
 	proxyInfoHistories  ProxyInfoHistories
 }
 
-func NewSentinel(uid string, cfg *config, end chan bool) (*Sentinel, error) {
+func NewSentinel(uid string, cfg *Config, end chan bool) (*Sentinel, error) {
 	var initialClusterSpec *cluster.ClusterSpec
-	if cfg.initialClusterSpecFile != "" {
-		configData, err := ioutil.ReadFile(cfg.initialClusterSpecFile)
+	if cfg.InitialClusterSpecFile != "" {
+		configData, err := ioutil.ReadFile(cfg.InitialClusterSpecFile)
 		if err != nil {
 			return nil, fmt.Errorf("cannot read provided initial cluster config file: %v", err)
 		}
@@ -1803,12 +1805,12 @@ func NewSentinel(uid string, cfg *config, end chan bool) (*Sentinel, error) {
 	}, nil
 }
 
-func (s *Sentinel) Start(ctx context.Context) {
+func (s *Sentinel) Start(ctx context.Context, hook func(bool)) {
 	endCh := make(chan struct{})
 
 	timerCh := time.NewTimer(0).C
 
-	go s.electionLoop(ctx)
+	go s.electionLoop(ctx, hook)
 
 	for {
 		select {
@@ -1982,7 +1984,7 @@ func sentinel(c *cobra.Command, args []string) {
 	default:
 		log.Fatalf("invalid log level: %v", cfg.LogLevel)
 	}
-	if cfg.debug {
+	if cfg.Debug {
 		slog.SetDebug()
 	}
 	if cmd.IsColorLoggerEnable(c, &cfg.CommonConfig) {
@@ -2020,7 +2022,7 @@ func sentinel(c *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatalf("cannot create sentinel: %v", err)
 	}
-	go s.Start(ctx)
+	go s.Start(ctx, func(isLeader bool) {})
 
 	// Ensure we collect Sentinel metrics prior to providing Prometheus with an update
 	mustRegisterSentinelCollector(s)
