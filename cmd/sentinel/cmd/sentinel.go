@@ -978,7 +978,7 @@ func (s *Sentinel) updateCluster(cd *cluster.ClusterData, pis cluster.ProxiesInf
 					log.Infow("removing dead keeper db", "keeper", k.UID, "db", db.UID)
 					dbsToRemove = append(dbsToRemove, db)
 				}
-				log.Infow("removing old dead keeper", "keeper", k.UID)
+				log.Warnw("removing dead keeper", "keeper", k.UID)
 				keepersToRemove = append(keepersToRemove, k)
 			}
 		}
