@@ -969,14 +969,17 @@ func (s *Sentinel) updateCluster(cd *cluster.ClusterData, pis cluster.ProxiesInf
 
 		for _, k := range newcd.Keepers {
 			if time.Now().After(k.Status.LastHealthyTime.Add(cd.Cluster.DefSpec().DeadKeeperRemovalInterval.Duration)) {
-				log.Infow("removing old dead keeper", "keeper", k.UID)
-				keepersToRemove = append(keepersToRemove, k)
-
 				// get db associated to the keeper
 				db := cd.FindDB(k)
-				if db != nil && s.dbType(newcd, db.UID) != dbTypeMaster {
+				if db != nil {
+					if s.dbType(newcd, db.UID) == dbTypeMaster {
+						continue
+					}
+					log.Infow("removing dead keeper db", "keeper", k.UID, "db", db.UID)
 					dbsToRemove = append(dbsToRemove, db)
 				}
+				log.Infow("removing old dead keeper", "keeper", k.UID)
+				keepersToRemove = append(keepersToRemove, k)
 			}
 		}
 		for _, k := range keepersToRemove {
